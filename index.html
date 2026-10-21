@@ -39,7 +39,7 @@
       try{
         const raw=Uint8Array.from(atob(encoded.replace(/-/g,'+').replace(/_/g,'/')+'='),c=>c.charCodeAt(0));
         const key=await crypto.subtle.importKey('raw',raw,{name:'AES-GCM'},false,['decrypt']);
-        const response=await fetch('./viewer.enc?v=59d577479edebcda9337',{cache:'no-store',credentials:'omit',referrerPolicy:'no-referrer'});
+        const response=await fetch('./viewer.enc?v=d1d1a7b10231eebacba1',{cache:'no-store',credentials:'omit',referrerPolicy:'no-referrer'});
         if(!response.ok)throw new Error('network');
         const payload=new Uint8Array(await response.arrayBuffer());
         if(payload.length<29)throw new Error('network');
