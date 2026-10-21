@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow, noarchive">
+  <meta name="referrer" content="no-referrer">
+  <title>Просмотр по ссылке</title>
+  <style>
+    :root{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#28342d;background:#f6f5f0;color-scheme:light}
+    body{margin:0;min-height:100dvh;display:grid;place-items:center;box-sizing:border-box;padding:24px}
+    main{max-width:420px;background:#fff;border:1px solid #e4e6dd;border-radius:24px;padding:32px;box-shadow:0 16px 60px #293c2910}
+    .icon{width:42px;height:42px;border-radius:12px;display:grid;place-items:center;background:#edf2e7;color:#4f6548;font-size:23px}
+    h1{font-size:25px;letter-spacing:-.6px;line-height:1.2;margin:22px 0 12px}
+    p{line-height:1.55;color:#667060;margin:0}
+    button{display:none;margin-top:24px;border:0;border-radius:12px;padding:12px 18px;background:#344b36;color:white;font:inherit;cursor:pointer}
+  </style>
+</head>
+<body>
+  <main>
+    <div class="icon" aria-hidden="true">⌑</div>
+    <h1 id="title">Доступ по личной ссылке</h1>
+    <p id="message" role="status">Откройте полную ссылку, которую вам прислал владелец. Без неё содержимое недоступно.</p>
+    <button id="retry" type="button">Повторить</button>
+    <noscript><p>Для просмотра нужно включить JavaScript.</p></noscript>
+  </main>
+  <script>
+  (()=>{
+    const title=document.getElementById('title'),message=document.getElementById('message'),retry=document.getElementById('retry');
+    let busy=false;
+    const show=(heading,text,canRetry=false)=>{title.textContent=heading;message.textContent=text;retry.style.display=canRetry?'inline-block':'none';};
+    async function open(){
+      if(busy)return;
+      const encoded=new URLSearchParams(location.hash.slice(1)).get('key');
+      if(!encoded){show('Доступ по личной ссылке','Откройте полную ссылку, которую вам прислал владелец. Без неё содержимое недоступно.');return;}
+      if(!/^[A-Za-z0-9_-]{43}$/.test(encoded)){show('Ссылка неполная','Скопируйте ссылку целиком, включая часть после знака #.');return;}
+      if(!window.crypto?.subtle){show('Не удалось открыть','Откройте HTTPS-ссылку в актуальном Safari, Chrome или другом современном браузере.');return;}
+      busy=true;show('Открываем просмотр…','Подготавливаем страницу.');
+      try{
+        const raw=Uint8Array.from(atob(encoded.replace(/-/g,'+').replace(/_/g,'/')+'='),c=>c.charCodeAt(0));
+        const key=await crypto.subtle.importKey('raw',raw,{name:'AES-GCM'},false,['decrypt']);
+        const response=await fetch('./viewer.enc?v=22b1703c04ae01c10400',{cache:'no-store',credentials:'omit',referrerPolicy:'no-referrer'});
+        if(!response.ok)throw new Error('network');
+        const payload=new Uint8Array(await response.arrayBuffer());
+        if(payload.length<29)throw new Error('network');
+        let content;
+        try{content=await crypto.subtle.decrypt({name:'AES-GCM',iv:payload.slice(0,12),tagLength:128},key,payload.slice(12));}
+        catch{show('Ссылка не подходит','Ключ неверен или содержимое обновляется. Проверьте полную ссылку либо повторите попытку.',true);return;}
+        const html=new TextDecoder('utf-8',{fatal:true}).decode(content);
+        // Restore the existing standalone viewer at the same URL, preserving the key fragment.
+        document.open();document.write(html);document.close();
+      }catch{show('Не удалось загрузить','Проверьте соединение с интернетом и повторите попытку.',true);}
+      finally{busy=false;}
+    }
+    retry.addEventListener('click',open);window.addEventListener('hashchange',open);open();
+  })();
+  </script>
+</body>
+</html>
